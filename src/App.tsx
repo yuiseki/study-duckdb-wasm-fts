@@ -6,27 +6,6 @@ import duckdb_worker from "@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?
 import duckdb_wasm from "@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url";
 import type { Table, StructRowProxy } from "apache-arrow";
 
-const initLinderaTokenizer = async (
-  setMyLinderaTokenizer: React.Dispatch<React.SetStateAction<any>>
-) => {
-  const { TokenizerBuilder } = await import("lindera-wasm");
-  const builder = new TokenizerBuilder();
-  builder.set_dictionary_kind("ipadic");
-  builder.set_mode("normal");
-
-  builder.append_character_filter("unicode_normalize", { kind: "nfkc" });
-
-  builder.append_token_filter("lowercase", {});
-  builder.append_token_filter("japanese_compound_word", {
-    kind: "ipadic",
-    tags: ["名詞,数"],
-    new_tag: "名詞,数",
-  });
-
-  const tokenizer = builder.build();
-  setMyLinderaTokenizer(tokenizer);
-};
-
 const initDuckDB = async (
   setMyDuckDB: React.Dispatch<React.SetStateAction<duckdb.AsyncDuckDB | null>>,
   tokenizer: any
@@ -72,6 +51,27 @@ const initDuckDB = async (
     "PRAGMA create_fts_index(sora_doc, id, content_t, stemmer = 'none', stopwords = 'none', ignore = '', lower = false, strip_accents = false);"
   );
   setMyDuckDB(db);
+};
+
+const initLinderaTokenizer = async (
+  setMyLinderaTokenizer: React.Dispatch<React.SetStateAction<any>>
+) => {
+  const { TokenizerBuilder } = await import("lindera-wasm");
+  const builder = new TokenizerBuilder();
+  builder.set_dictionary_kind("ipadic");
+  builder.set_mode("normal");
+
+  builder.append_character_filter("unicode_normalize", { kind: "nfkc" });
+
+  builder.append_token_filter("lowercase", {});
+  builder.append_token_filter("japanese_compound_word", {
+    kind: "ipadic",
+    tags: ["名詞,数"],
+    new_tag: "名詞,数",
+  });
+
+  const tokenizer = builder.build();
+  setMyLinderaTokenizer(tokenizer);
 };
 
 function App() {
