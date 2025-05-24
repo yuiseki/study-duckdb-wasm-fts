@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@duckdb/duckdb-wasm": "^1.29.1-dev132.0",
-    "lindera-wasm": "^0.42.0",
+    "lindera-wasm": "^0.43.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
