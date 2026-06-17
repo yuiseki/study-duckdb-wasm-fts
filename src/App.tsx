@@ -80,6 +80,22 @@ const initLinderaTokenizer = async (
   setMyLinderaTokenizer(tokenizer);
 };
 
+// content 内で検索キーワード(lindera トークン)に一致する箇所を <mark> で囲む。
+// 正規表現のキャプチャグループで split すると、奇数番目の要素が一致部分になる。
+const highlightTokens = (content: string, tokens: string[]) => {
+  const uniqTokens = [...new Set(tokens)].filter((t) => t.trim().length > 0);
+  if (uniqTokens.length === 0) return content;
+  // 長いトークン優先 + 正規表現メタ文字をエスケープ
+  const pattern = uniqTokens
+    .sort((a, b) => b.length - a.length)
+    .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|");
+  const regex = new RegExp(`(${pattern})`, "gi");
+  return content
+    .split(regex)
+    .map((part, i) => (i % 2 === 1 ? <mark key={i}>{part}</mark> : part));
+};
+
 function App() {
   const [query, setQuery] = useState("センシティブ");
   const linderaTokenizerInitialized = useRef(false);
@@ -87,6 +103,8 @@ function App() {
   const duckdbInitialized = useRef(false);
   const [myDuckDB, setMyDuckDB] = useState<duckdb.AsyncDuckDB | null>(null);
   const [resultRows, setResultRows] = useState<StructRowProxy<any>[]>([]);
+  // 検索に使用した lindera トークン（マッチ箇所のハイライト用）
+  const [queryTokens, setQueryTokens] = useState<string[]>([]);
 
   useEffect(() => {
     if (!linderaTokenizerInitialized.current) {
@@ -114,10 +132,11 @@ function App() {
       if (myDuckDB && myLinderaTokenizer && query) {
         console.log(query);
 
-        const tokens = myLinderaTokenizer
+        const tokenList: string[] = myLinderaTokenizer
           .tokenize(query)
-          .map((token: { surface: string }) => token.surface)
-          .join(" ");
+          .map((token: { surface: string }) => token.surface);
+        setQueryTokens(tokenList);
+        const tokens = tokenList.join(" ");
         const conn = await myDuckDB.connect();
         const sql: string = `SELECT id, fts_main_sora_doc.match_bm25(id, '${tokens}') AS score, content FROM sora_doc WHERE score IS NOT NULL ORDER BY score DESC`;
         const newResults: Table = await conn.query(sql);
@@ -221,7 +240,7 @@ function App() {
                 {row.score.toFixed(4)}
               </div>
               <div style={{ flex: "1", padding: "0 10px", textAlign: "left" }}>
-                {row.content}
+                {highlightTokens(row.content, queryTokens)}
               </div>
             </div>
           ))}
