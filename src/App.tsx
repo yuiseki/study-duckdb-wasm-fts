@@ -38,7 +38,8 @@ const initDuckDB = async (
   for (const doc of docs) {
     const tokens = tokenizer
       .tokenize(doc)
-      .map((token: Map<string, string>) => token.get("text"))
+      // lindera-wasm v2 の token は { surface, pos, ... } のオブジェクト
+      .map((token: { surface: string }) => token.surface)
       .join(" ");
     const stmt = await conn.prepare(
       "INSERT INTO sora_doc (content, content_t) VALUES (?, ?)"
@@ -56,15 +57,20 @@ const initDuckDB = async (
 const initLinderaTokenizer = async (
   setMyLinderaTokenizer: React.Dispatch<React.SetStateAction<any>>
 ) => {
-  const { TokenizerBuilder } = await import("lindera-wasm");
+  const { default: initLinderaWasm, TokenizerBuilder } = await import(
+    "lindera-wasm-web-ipadic"
+  );
+  // lindera-wasm v2 では TokenizerBuilder を使う前に wasm の初期化が必須
+  await initLinderaWasm();
   const builder = new TokenizerBuilder();
-  builder.set_dictionary_kind("ipadic");
-  builder.set_mode("normal");
+  // v2 から辞書は URI 指定。lindera-wasm-web-ipadic は IPADIC を embedded で同梱
+  builder.setDictionary("embedded://ipadic");
+  builder.setMode("normal");
 
-  builder.append_character_filter("unicode_normalize", { kind: "nfkc" });
+  builder.appendCharacterFilter("unicode_normalize", { kind: "nfkc" });
 
-  builder.append_token_filter("lowercase", {});
-  builder.append_token_filter("japanese_compound_word", {
+  builder.appendTokenFilter("lowercase", {});
+  builder.appendTokenFilter("japanese_compound_word", {
     kind: "ipadic",
     tags: ["名詞,数"],
     new_tag: "名詞,数",
@@ -110,7 +116,7 @@ function App() {
 
         const tokens = myLinderaTokenizer
           .tokenize(query)
-          .map((token: Map<string, string>) => token.get("text"))
+          .map((token: { surface: string }) => token.surface)
           .join(" ");
         const conn = await myDuckDB.connect();
         const sql: string = `SELECT id, fts_main_sora_doc.match_bm25(id, '${tokens}') AS score, content FROM sora_doc WHERE score IS NOT NULL ORDER BY score DESC`;
